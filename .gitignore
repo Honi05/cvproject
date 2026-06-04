@@ -12,3 +12,11 @@ wandb/
 .pytest_cache/
 runs/
 yolo_dataset/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+report/*.log
