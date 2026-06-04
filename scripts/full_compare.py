@@ -17,6 +17,14 @@ def yolo_occupied_accuracy(weights, imgsz=416):
     (directly comparable to the CNN's occupied accuracy)."""
     from ultralytics import YOLO
     model = YOLO(weights)
+    n_params = sum(p.numel() for p in model.model.parameters())
+    gflops = None
+    try:
+        info = model.info(verbose=False)  # (layers, params, grads, gflops)
+        if info and len(info) >= 4 and info[3]:
+            gflops = round(float(info[3]), 4)
+    except Exception:
+        pass
     recs = json.loads((CACHE_DIR / "test_manifest.json").read_text())[:N_SAMPLE]
     paths = [r["path"] for r in recs]
     t0 = time.time()
@@ -45,7 +53,7 @@ def yolo_occupied_accuracy(weights, imgsz=416):
             pred_cnn = best[ci][1] + 1 if ci in best else 0  # yolo cls -> cnn idx
             if pred_cnn == gt[ci]:
                 correct += 1
-    return correct / max(1, total), infer_s / len(recs) * 1000.0
+    return correct / max(1, total), infer_s / len(recs) * 1000.0, n_params, gflops
 
 def main():
     cnn = json.loads(Path("/tmp/cnn_stats.json").read_text())
@@ -62,12 +70,12 @@ def main():
     }]
     for y in yolo:
         log.info("Per-piece eval for %s ...", y["model"])
-        acc, lat = yolo_occupied_accuracy(y["weights"])
+        acc, lat, n_params, gflops = yolo_occupied_accuracy(y["weights"])
         rows.append({
             "model": y["model"],
             "occ_accuracy": round(acc, 4),
-            "params": y["params"],
-            "gflops": y["gflops"],
+            "params": n_params,
+            "gflops": gflops,
             "latency_ms_per_board": round(lat, 4),
             "disk_mb": y["disk_mb"],
             "map50_95": y["map50_95"],
@@ -80,8 +88,11 @@ def main():
         import wandb
         run = wandb.init(project="chess-cnn-vs-yolo", group="comparison",
                          name="cnn-vs-yolo-summary", reinit=True)
-        tbl = wandb.Table(columns=list(rows[0].keys()),
-                          data=[[r.get(k) for k in rows[0].keys()] for r in rows])
+        cols = list(rows[0].keys())
+        # map50_95 mixes numbers and the CNN's "n/a" string -> stringify for wandb
+        tbl = wandb.Table(columns=cols, data=[
+            [str(r.get(k)) if k == "map50_95" else r.get(k) for k in cols]
+            for r in rows])
         run.log({"comparison": tbl})
         run.finish()
         print("logged comparison table to wandb")
