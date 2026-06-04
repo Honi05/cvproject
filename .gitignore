@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/cache/
+data/raw/
+outputs/
+wandb/
+*.db
+*.pt
+*.pth
+.pytest_cache/
+runs/
+yolo_dataset/
