@@ -29,3 +29,18 @@ def test_board_record_roundtrip(synthetic_board):
     assert rec["fen"] == fen
     assert len(rec["cell_labels"]) == 64
     assert rec["n_pieces"] == sum(1 for v in rec["cell_labels"] if v != 0)
+
+
+def test_build_manifest_finds_jpeg_and_png(tmp_path):
+    from PIL import Image
+    import numpy as np
+    import json
+    from cvchess.data.build_dataset import build_manifest
+    fen = "8-8-8-8-8-8-8-4K3"
+    arr = np.full((400, 400, 3), 127, dtype=np.uint8)
+    Image.fromarray(arr).save(tmp_path / f"{fen}.jpeg")
+    out = tmp_path / "m.json"
+    summary = build_manifest(tmp_path, out)
+    assert summary["count"] == 1
+    records = json.loads(out.read_text())
+    assert records[0]["fen"] == fen

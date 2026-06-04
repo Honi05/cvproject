@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from cvchess.config import CELL, GRID, CACHE_DIR, CNN_TO_YOLO
+from cvchess.config import CELL, GRID, CNN_TO_YOLO
 from cvchess.data.fen import (
     filename_to_fen, fen_to_label_grid, label_grid_to_cnn_indices,
 )
@@ -57,7 +57,8 @@ def board_record(path: Path) -> dict:
 def build_manifest(split_dir: Path, out_json: Path, limit: int | None = None) -> dict:
     """Scan a split dir of *.png, write a manifest JSON, return summary."""
     split_dir = Path(split_dir)
-    imgs = sorted(split_dir.glob("*.png"))
+    exts = ("*.png", "*.jpeg", "*.jpg")
+    imgs = sorted(p for ext in exts for p in split_dir.glob(ext))
     if limit:
         imgs = imgs[:limit]
     records = [board_record(p) for p in imgs]
