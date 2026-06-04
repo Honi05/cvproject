@@ -1,5 +1,4 @@
 from __future__ import annotations
-import resource
 from dataclasses import dataclass, field
 
 import psutil
@@ -60,17 +59,22 @@ def cap_gpu_memory(fraction: float = MEMORY_FRACTION) -> None:
         log.warning("Could not cap GPU memory: %s", e)
 
 
-def cap_system_memory(fraction: float = MEMORY_FRACTION) -> None:
-    total = psutil.virtual_memory().total
-    soft_cap = int(total * fraction)
-    try:
-        _, hard = resource.getrlimit(resource.RLIMIT_AS)
-        new_hard = hard if hard != resource.RLIM_INFINITY else soft_cap
-        resource.setrlimit(resource.RLIMIT_AS, (soft_cap, new_hard))
-        log.info("Capped system RAM (RLIMIT_AS) to %.0f%% (%.1f GB)",
-                 fraction * 100, soft_cap / (1024 ** 3))
-    except (ValueError, OSError) as e:
-        log.warning("Could not set RLIMIT_AS: %s", e)
+def cap_system_memory(fraction: float = MEMORY_FRACTION) -> float:
+    """Soft system-RAM guard. We deliberately do NOT set RLIMIT_AS:
+    capping virtual address space breaks CUDA, which reserves huge virtual
+    ranges far exceeding physical RSS. Returns the soft threshold in GB and
+    logs it; use system_memory_ok() to check live usage during long runs."""
+    total_gb = psutil.virtual_memory().total / (1024 ** 3)
+    threshold_gb = total_gb * fraction
+    log.info("System RAM soft cap: %.0f%% (%.1f of %.1f GB). "
+             "Not enforced via RLIMIT_AS (unsafe with CUDA); monitored instead.",
+             fraction * 100, threshold_gb, total_gb)
+    return threshold_gb
+
+
+def system_memory_ok(fraction: float = MEMORY_FRACTION) -> bool:
+    """True if current system RAM usage is below the soft cap."""
+    return psutil.virtual_memory().percent < fraction * 100
 
 
 def apply_caps(fraction: float = MEMORY_FRACTION) -> None:

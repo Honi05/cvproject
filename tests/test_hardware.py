@@ -17,3 +17,25 @@ def test_recommended_workers_bounded():
 def test_memory_fraction_constant():
     info = detect()
     assert 0 < info.memory_fraction <= 0.9
+
+
+def test_cap_system_memory_returns_threshold_and_does_not_crash():
+    from cvchess.hardware import cap_system_memory
+    import psutil
+    t = cap_system_memory(0.9)
+    total_gb = psutil.virtual_memory().total / (1024 ** 3)
+    assert 0 < t <= total_gb
+
+
+def test_system_memory_ok_returns_bool():
+    from cvchess.hardware import system_memory_ok
+    assert isinstance(system_memory_ok(0.9), bool)
+
+
+def test_apply_caps_does_not_set_address_space_limit():
+    import resource
+    from cvchess.hardware import apply_caps
+    before = resource.getrlimit(resource.RLIMIT_AS)
+    apply_caps(0.9)
+    after = resource.getrlimit(resource.RLIMIT_AS)
+    assert before == after  # we must NOT modify RLIMIT_AS anymore
