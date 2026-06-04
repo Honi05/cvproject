@@ -37,7 +37,10 @@ def main() -> None:
     log_summary()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    test_ds = CellDataset(CACHE_DIR / "test_manifest.json", max_empty_ratio=1.0)
+    tc = CACHE_DIR / "test_cells.npy"; tl = CACHE_DIR / "test_labels.npy"
+    test_ds = CellDataset(CACHE_DIR / "test_manifest.json", max_empty_ratio=1.0,
+                          cells_path=tc if tc.exists() else None,
+                          labels_path=tl if tl.exists() else None)
     loader = DataLoader(test_ds, batch_size=256, num_workers=recommended_num_workers())
 
     cnn = load_cnn(device)

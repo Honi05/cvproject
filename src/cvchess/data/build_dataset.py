@@ -70,3 +70,30 @@ def build_manifest(split_dir: Path, out_json: Path, limit: int | None = None) ->
 
 def load_image(path: str | Path) -> np.ndarray:
     return np.asarray(Image.open(path).convert("RGB"))
+
+
+def build_crop_cache(manifest_path, cells_path, labels_path) -> dict:
+    """Precompute a uint8 memmap of all 64 cells per board + an int64 label
+    array, so training reads 50x50 crops without re-decoding images.
+    cells shape: (n_boards, 64, 50, 50, 3); labels shape: (n_boards, 64).
+    Board order matches the manifest record order exactly."""
+    from pathlib import Path as _Path
+    records = json.loads(_Path(manifest_path).read_text())
+    n = len(records)
+    cells_path, labels_path = _Path(cells_path), _Path(labels_path)
+    cells_path.parent.mkdir(parents=True, exist_ok=True)
+    cells = np.lib.format.open_memmap(
+        cells_path, mode="w+", dtype=np.uint8,
+        shape=(n, GRID * GRID, CELL, CELL, 3))
+    labels = np.zeros((n, GRID * GRID), dtype=np.int64)
+    for i, rec in enumerate(records):
+        img = load_image(rec["path"])
+        cells[i] = slice_cells(img)
+        labels[i] = np.asarray(rec["cell_labels"], dtype=np.int64)
+        if (i + 1) % 2000 == 0:
+            log.info("crop cache: %d/%d boards", i + 1, n)
+    cells.flush()
+    del cells
+    np.save(labels_path, labels)
+    log.info("Wrote crop cache: %s (%d boards) + %s", cells_path, n, labels_path)
+    return {"cells": str(cells_path), "labels": str(labels_path), "n": n}

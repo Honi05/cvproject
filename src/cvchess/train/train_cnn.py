@@ -25,6 +25,10 @@ log = get_logger("train_cnn")
 class TrainConfig:
     train_manifest: str
     test_manifest: str
+    train_cells: str | None = None
+    train_labels: str | None = None
+    test_cells: str | None = None
+    test_labels: str | None = None
     epochs: int = 8
     target_accuracy: float = 0.97
     budget_seconds: float = 3 * 3600
@@ -40,8 +44,10 @@ def _device(cfg: TrainConfig) -> str:
 
 
 def _loaders(cfg: TrainConfig, batch_size: int):
-    train_ds = CellDataset(cfg.train_manifest, max_empty_ratio=cfg.max_empty_ratio)
-    test_ds = CellDataset(cfg.test_manifest, max_empty_ratio=cfg.max_empty_ratio)
+    train_ds = CellDataset(cfg.train_manifest, max_empty_ratio=cfg.max_empty_ratio,
+                           cells_path=cfg.train_cells, labels_path=cfg.train_labels)
+    test_ds = CellDataset(cfg.test_manifest, max_empty_ratio=cfg.max_empty_ratio,
+                          cells_path=cfg.test_cells, labels_path=cfg.test_labels)
     nw = recommended_num_workers()
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
                               num_workers=nw, pin_memory=True, drop_last=True)

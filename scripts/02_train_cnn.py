@@ -25,6 +25,10 @@ def main() -> None:
     cfg = TrainConfig(
         train_manifest=str(CACHE_DIR / "train_manifest.json"),
         test_manifest=str(CACHE_DIR / "test_manifest.json"),
+        train_cells=str(CACHE_DIR / "train_cells.npy"),
+        train_labels=str(CACHE_DIR / "train_labels.npy"),
+        test_cells=str(CACHE_DIR / "test_cells.npy"),
+        test_labels=str(CACHE_DIR / "test_labels.npy"),
         epochs=args.epochs, n_trials=args.n_trials,
         target_accuracy=args.target, budget_seconds=args.budget_hours * 3600,
     )

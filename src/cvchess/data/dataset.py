@@ -14,8 +14,14 @@ class CellDataset(Dataset):
     """Yields (cell_tensor[3,50,50] float[0,1], cnn_label) for every cell.
     Optionally caps empty cells relative to occupied for class balance."""
 
-    def __init__(self, manifest_path, max_empty_ratio: float | None = None):
+    def __init__(self, manifest_path, max_empty_ratio: float | None = None,
+                 cells_path=None, labels_path=None):
         self.records = json.loads(Path(manifest_path).read_text())
+        self.cells = None
+        self.cache_labels = None
+        if cells_path is not None and labels_path is not None:
+            self.cells = np.load(cells_path, mmap_mode="r")
+            self.cache_labels = np.load(labels_path)
         self.index: list[tuple[int, int]] = []
         for ri, rec in enumerate(self.records):
             labels = rec["cell_labels"]
@@ -31,10 +37,14 @@ class CellDataset(Dataset):
 
     def __getitem__(self, i: int):
         ri, ci = self.index[i]
-        rec = self.records[ri]
-        img = load_image(rec["path"])
-        cells = slice_cells(img)
-        cell = cells[ci].astype(np.float32) / 255.0
+        if self.cells is not None:
+            cell = np.asarray(self.cells[ri, ci], dtype=np.float32) / 255.0
+            label = int(self.cache_labels[ri, ci])
+        else:
+            rec = self.records[ri]
+            img = load_image(rec["path"])
+            cells = slice_cells(img)
+            cell = cells[ci].astype(np.float32) / 255.0
+            label = int(rec["cell_labels"][ci])
         tensor = torch.from_numpy(cell).permute(2, 0, 1).contiguous()
-        label = int(rec["cell_labels"][ci])
         return tensor, label
