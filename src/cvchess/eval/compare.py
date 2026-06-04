@@ -36,9 +36,14 @@ def compute_profile(model, input_shape=(1, 3, 50, 50)) -> dict:
     params = sum(p.numel() for p in model.parameters())
     flops = None
     try:
+        import copy
         from thop import profile
-        x = torch.rand(*input_shape)
-        flops, _ = profile(model, inputs=(x,), verbose=False)
+        # Profile a deep copy so thop's hooks/buffers never persist on the real
+        # model, and place the probe tensor on the model's own device.
+        dev = next(model.parameters()).device
+        probe = copy.deepcopy(model)
+        x = torch.rand(*input_shape, device=dev)
+        flops, _ = profile(probe, inputs=(x,), verbose=False)
     except Exception as e:
         log.warning("FLOP profiling failed: %s", e)
     return {"params": int(params), "flops": flops}
